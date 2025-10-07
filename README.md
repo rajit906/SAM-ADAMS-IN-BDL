@@ -2,6 +2,11 @@
 
 An adaptive stepsize sampling algorithm for Bayesian Deep Learning, without a divergence term!
 
+## Experiments:
+
+Motivating toy example with GMM (Numpy)
+Bayesian Neural Network (Torch)
+
 
 ## Instructions to contribute after cloning:
 
