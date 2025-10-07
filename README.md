@@ -11,7 +11,7 @@ git checkout main          # make sure you’re on main
 
 git pull origin main        # update it to the latest remote version
 
-git checkout -b <<<INSERT YOUR BRANCH NAME>>>
+git checkout -b YOUR-BRANCH-NAME
 
 ### Edit add and commit as usual:
 
