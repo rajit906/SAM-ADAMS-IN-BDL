@@ -4,7 +4,7 @@ An adaptive stepsize sampling algorithm for Bayesian Deep Learning, without a di
 
 ## Experiments:
 
-Motivating toy example with GMM (Numpy)
+Motivating toy example with GMM+Laplace (Numpy)
 
 Bayesian Neural Network (Torch)
 
