@@ -1,15 +1,20 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import warnings
-warnings.filterwarnings("ignore")
-from utils import ess
-from samplers import run_sampler, step_BAOAB, step_ZBAOABZ
+from utils import ess, run_sampler
+from samplers import step_BAOAB, step_ZBAOABZ
 
-def plot_samplers(alpha=1.0, h=0.01, gamma=1.0, beta=1.0):
-    nsteps = int(1e4)  # keep interactive speed reasonable
+def plot_samplers(alpha, h, gamma, beta,
+                  grad_U, laplacian_U,
+                  X, Y, LOGZ, levels,
+                  m, M, r, nsteps):
 
-    samples_baoab, traces_baoab = run_sampler(step_BAOAB, nsteps, h, gamma, alpha, beta, record_trace=True)
-    samples_zbaoabz, traces_zbaoabz = run_sampler(step_ZBAOABZ, nsteps, h, gamma, alpha, beta, record_trace=True)
+    samples_baoab, traces_baoab = run_sampler(
+        step_BAOAB, nsteps, h, gamma, alpha, beta,
+        grad_U, laplacian_U, m, M, r, record_trace=True)
+
+    samples_zbaoabz, traces_zbaoabz = run_sampler(
+        step_ZBAOABZ, nsteps, h, gamma, alpha, beta,
+        grad_U, laplacian_U, m, M, r, record_trace=True)
 
     # compute ESS for y trace
     ess_baoab = ess(traces_baoab[:,0])
