@@ -1,47 +1,41 @@
-
 import numpy as np
-import matplotlib.pyplot as plt
 from numba import njit
-from ipywidgets import interact, FloatLogSlider
-import warnings
-warnings.filterwarnings("ignore")
 
-# --- Run sampler with optional trace recording ---
 @njit
-def run_sampler(stepper, nsteps, h, gamma, alpha, beta, burnin=1000, record_trace=False):
+def run_sampler(stepper, nsteps, h, gamma, alpha, beta,
+                grad_U, m, M, r, s,
+                burnin, record_trace=False):
+    """
+    Runs a sampler for given potential and returns samples & traces.
+    """
     x = np.array([5.0, 0.0])
     p = np.array([0.0, 0.0])
     z = 0.0
     samples = np.zeros((nsteps, 2))
-    traces = np.zeros((nsteps, 6))  # [y, x, p_y, p_x, dt, T_conf]
+    traces = np.zeros((nsteps, 6))
 
     for t in range(nsteps + burnin):
-        x, p, z, dt = stepper(x, p, z, h, gamma, alpha, beta)
+        x, p, z, dt = stepper(x, p, z, h, gamma, alpha, beta,
+                                  grad_U, m, M, r, s)
+
         if t >= burnin:
             idx = t - burnin
-            samples[idx, 0] = x[0]   # y
-            samples[idx, 1] = x[1]   # x
+            samples[idx, :] = x
             if record_trace:
                 grad = grad_U(x)
-                lapl = laplacian_U(x)
-                T_conf = np.dot(grad, grad) / lapl
+                T_conf = np.dot(grad, x) / len(x) # This should be 
+                traces[idx] = np.array([x[0], x[1], p[0], p[1], dt, T_conf])
 
-                traces[idx, 0] = x[0]    # y
-                traces[idx, 1] = x[1]    # x
-                traces[idx, 2] = p[0]    # p_y
-                traces[idx, 3] = p[1]    # p_x
-                traces[idx, 4] = dt      # dt
-                traces[idx, 5] = T_conf  # configurational T
     return samples, traces
 
 
-# --- Effective Sample Size ---
 def autocorr_func_1d(x, max_lag=2000):
     n = len(x)
     x = x - np.mean(x)
-    result = np.correlate(x, x, mode='full')
-    acf = result[result.size//2:] / result[result.size//2]
+    result = np.correlate(x, x, mode="full")
+    acf = result[result.size // 2:] / result[result.size // 2]
     return acf[:max_lag]
+
 
 def ess(x, max_lag=2000):
     acf = autocorr_func_1d(x, max_lag)
