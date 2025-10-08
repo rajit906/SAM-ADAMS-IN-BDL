@@ -3,8 +3,8 @@ from numba import njit
 
 @njit
 def run_sampler(stepper, nsteps, h, gamma, alpha, beta,
-                grad_U, laplacian_U, m, M, r, 
-                burnin=1000, record_trace=False):
+                grad_U, m, M, r, s,
+                burnin, record_trace=False):
     """
     Runs a sampler for given potential and returns samples & traces.
     """
@@ -16,15 +16,14 @@ def run_sampler(stepper, nsteps, h, gamma, alpha, beta,
 
     for t in range(nsteps + burnin):
         x, p, z, dt = stepper(x, p, z, h, gamma, alpha, beta,
-                                  grad_U, m, M, r)
+                                  grad_U, m, M, r, s)
 
         if t >= burnin:
             idx = t - burnin
             samples[idx, :] = x
             if record_trace:
                 grad = grad_U(x)
-                lapl = laplacian_U(x)
-                T_conf = np.dot(grad, grad) / lapl
+                T_conf = np.dot(grad, x) / len(x) # This should be 
                 traces[idx] = np.array([x[0], x[1], p[0], p[1], dt, T_conf])
 
     return samples, traces

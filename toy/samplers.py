@@ -4,17 +4,16 @@ from numba import njit
 # ============================================================
 # Generic adaptive samplers for any potential grad_U(x)
 # ============================================================
-
 @njit
 def psi_fn(z, m, M, r):
     """Bounded scaling function ψ(z) in [m, M]."""
-    return m * (z**r + M/m) / (z**r + 1.0)
+    return m * (z**r + M) / (z**r + m)
 
 # ============================================================
 # BAOAB (standard SGHMC / Langevin splitting)
 # ============================================================
 @njit
-def step_BAOAB(x, p, z, h, gamma, alpha, beta, grad_U, m, M, r):
+def step_BAOAB(x, p, z, h, gamma, alpha, beta, grad_U, m, M, r, s):
     """
     One BAOAB step for given potential grad_U(x).
     Parameters
@@ -49,30 +48,29 @@ def step_BAOAB(x, p, z, h, gamma, alpha, beta, grad_U, m, M, r):
 # ============================================================
 @njit
 def step_ZBAOABZ(x, p, z, dtau, gamma, alpha, beta,
-                 grad_U, m, M, r):
+                 grad_U, m, M, r, s):
     """
     Adaptive BAOAB with auxiliary variable z.
     """
-    # Monitor g = ||grad_U(x)|| (can replace with other definitions)
-    g_val = np.linalg.norm(grad_U(x))
 
-    # Half update of z in τ-time
+    # Z-step
+    g_val = np.linalg.norm(grad_U(x))**s
     rho = np.exp(-alpha * 0.5 * dtau)
     z = rho * z + (1.0 - rho) * g_val / alpha
 
-    # Effective step in t-time
+    # Computing dt for this step
     psi = psi_fn(z, m, M, r)
     dt = psi * dtau
 
     # BAOAB main updates
-    p -= 0.5 * dt * grad_U(x)
-    x += 0.5 * dt * p
+    p -= 0.5 * dt * grad_U(x) # B-step
+    x += 0.5 * dt * p # A-step
     c = np.exp(-gamma * dt)
-    p = c * p + np.sqrt((1.0 - c**2) / beta) * np.random.randn(2)
-    x += 0.5 * dt * p
-    p -= 0.5 * dt * grad_U(x)
+    p = c * p + np.sqrt((1.0 - c**2) / beta) * np.random.randn(2) # O-step
+    x += 0.5 * dt * p # A-step
+    p -= 0.5 * dt * grad_U(x) # B-step
 
-    # Second half update of z
+    # Z-step
     g_val = np.linalg.norm(grad_U(x))
     z = rho * z + (1.0 - rho) * g_val / alpha
 
