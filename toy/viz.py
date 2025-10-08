@@ -11,10 +11,14 @@ def plot_samplers(alpha, h, gamma, beta,
     samples_baoab, traces_baoab = run_sampler(
         step_BAOAB, nsteps, h, gamma, alpha, beta,
         grad_U, laplacian_U, m, M, r, record_trace=True)
+    
+    print('---- Finished running BAOAB ----')
 
     samples_zbaoabz, traces_zbaoabz = run_sampler(
         step_ZBAOABZ, nsteps, h, gamma, alpha, beta,
         grad_U, laplacian_U, m, M, r, record_trace=True)
+    
+    print(' ---- Finished running ZBAOABZ ----')
 
     # compute ESS for y trace
     ess_baoab = ess(traces_baoab[:,0])
