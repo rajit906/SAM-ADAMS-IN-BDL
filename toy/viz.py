@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from utils import ess, run_sampler
-from samplers import step_BAOAB, step_ZBAOABZ
+from samplers import step_BAOAB_SGHMC, step_ZBAOABZ_SGHMC
 
 def plot_samplers(alpha, h, gamma, beta, grad_U,
                   X, Y, LOGZ, levels,
@@ -9,13 +9,13 @@ def plot_samplers(alpha, h, gamma, beta, grad_U,
                   record_trace=True, plot_stride=10):
 
     samples_baoab, traces_baoab = run_sampler(
-        step_BAOAB, nsteps, h * b, gamma, alpha, beta,
+        step_BAOAB_SGHMC, nsteps, h * b, gamma, alpha, beta,
         grad_U, m, M, r, s, burnin=burnin, record_trace=record_trace)
 
     print('---- Finished running BAOAB ----')
 
     samples_zbaoabz, traces_zbaoabz = run_sampler(
-        step_ZBAOABZ, nsteps, h, gamma, alpha, beta,
+        step_ZBAOABZ_SGHMC, nsteps, h, gamma, alpha, beta,
         grad_U, m, M, r, s, burnin=burnin, record_trace=record_trace)
 
     print('---- Finished running ZBAOABZ ----')
