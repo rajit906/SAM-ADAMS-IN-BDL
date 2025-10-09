@@ -157,3 +157,41 @@ def step_ZOLD(x, p, z, dtau, gamma, alpha, beta, grad_U, m, M, r, s):
     z = rho * z + (1.0 - rho) * g_val / alpha
 
     return x, p, z, dt
+
+
+
+import numpy as np
+from numba import njit
+
+# ------------------------------------------------------------
+# pSGLD (preconditioned SGLD à la RMSProp)
+# ------------------------------------------------------------
+@njit
+def step_pSGLD(x, h, beta,
+               grad_U, eps=1e-8, lambd=0.99):
+    """
+    Preconditioned SGLD using RMSProp-like adaptive scaling.
+    Designed to match run_sampler() interface.
+
+    Parameters
+    ----------
+    x : position vector
+    p : unused (kept for interface compatibility)
+    z : stores running grad^2 accumulator here
+    h : base stepsize
+    gamma, alpha, m, M, r, s unused (kept for interface consistency)
+    beta : inverse temperature
+    eps : numerical stability
+    tau : RMSProp decay factor
+    """
+
+    dt = h
+    g = grad_U(x)                 # gradient
+    V = lambd * V + (1.0 - lambd) * g * g    # accumulate grad^2, this is element-wise.
+    G = 1.0 / (np.sqrt(V) + eps)   # diagonal scaling
+    G_sqrt = np.sqrt(G)
+
+    noise = np.sqrt(2.0 * dt / beta) * np.random.randn(x.shape[0])
+    x = x - dt * G * g + G_sqrt * noise # G should be a diagonal matrix but we are just doing elementwise vector multiplication to save memory.
+    # Note that this is also missing a divergence term that will indeed cause bias.
+    return x
