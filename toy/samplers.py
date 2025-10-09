@@ -158,11 +158,6 @@ def step_ZOLD(x, p, z, dtau, gamma, alpha, beta, grad_U, m, M, r, s):
 
     return x, p, z, dt
 
-
-
-import numpy as np
-from numba import njit
-
 # ------------------------------------------------------------
 # pSGLD (preconditioned SGLD à la RMSProp)
 # ------------------------------------------------------------
@@ -176,13 +171,10 @@ def step_pSGLD(x, h, beta,
     Parameters
     ----------
     x : position vector
-    p : unused (kept for interface compatibility)
-    z : stores running grad^2 accumulator here
     h : base stepsize
-    gamma, alpha, m, M, r, s unused (kept for interface consistency)
     beta : inverse temperature
     eps : numerical stability
-    tau : RMSProp decay factor
+    lambda : RMSProp decay factor
     """
 
     dt = h
