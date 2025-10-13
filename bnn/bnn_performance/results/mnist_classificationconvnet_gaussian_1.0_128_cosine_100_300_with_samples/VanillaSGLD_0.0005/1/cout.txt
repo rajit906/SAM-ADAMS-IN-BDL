@@ -1,0 +1,5 @@
+INFO - bnn_training - Running command 'main'
+INFO - bnn_training - Started run with ID "2"
+Evaluating
+INFO - bnn_training - Result: {'val': {'lp_ensemble': -0.13757976382063808, 'lp_last': 0.0, 'acc_ensemble': 0.9409000277519226, 'acc_last': 0.09520000219345093, 'ece': 0.6631634423379842, 'ace': 0.134121186319123, 'rmsce': 0.06693645711177693}, 'test': {'lp_ensemble': -0.1313382421106973, 'lp_last': 0.0, 'acc_ensemble': 0.9441999793052673, 'acc_last': 0.09799999743700027, 'ece': 0.665182486788763, 'ace': 0.13442233518921762, 'rmsce': 0.067127225729825}}
+INFO - bnn_training - Completed after 0:21:37

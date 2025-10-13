@@ -1,0 +1,32 @@
+Traceback (most recent call last):
+  File "/disk/homeDIRS/rrajpal/SAM-ADAMS-IN-BDL/bnn/bnn_performance/experiments/train_bnn.py", line 16, in <module>
+    from pyro.infer.mcmc import NUTS, HMC
+  File "/disk/homeDIRS/rrajpal/miniconda3/envs/sgsamadams/lib/python3.10/site-packages/pyro/__init__.py", line 4, in <module>
+    import pyro.poutine as poutine
+  File "/disk/homeDIRS/rrajpal/miniconda3/envs/sgsamadams/lib/python3.10/site-packages/pyro/poutine/__init__.py", line 4, in <module>
+    from .handlers import (
+  File "/disk/homeDIRS/rrajpal/miniconda3/envs/sgsamadams/lib/python3.10/site-packages/pyro/poutine/handlers.py", line 60, in <module>
+    from .collapse_messenger import CollapseMessenger
+  File "/disk/homeDIRS/rrajpal/miniconda3/envs/sgsamadams/lib/python3.10/site-packages/pyro/poutine/collapse_messenger.py", line 7, in <module>
+    from pyro.distributions.distribution import COERCIONS
+  File "/disk/homeDIRS/rrajpal/miniconda3/envs/sgsamadams/lib/python3.10/site-packages/pyro/distributions/__init__.py", line 4, in <module>
+    import pyro.distributions.torch_patch  # noqa F403
+  File "/disk/homeDIRS/rrajpal/miniconda3/envs/sgsamadams/lib/python3.10/site-packages/pyro/distributions/torch_patch.py", line 10, in <module>
+    assert torch.__version__.startswith("1.")
+AssertionError
+Traceback (most recent call last):
+  File "/disk/homeDIRS/rrajpal/SAM-ADAMS-IN-BDL/bnn/bnn_performance/experiments/train_bnn.py", line 16, in <module>
+    from pyro.infer.mcmc import NUTS, HMC
+  File "/disk/homeDIRS/rrajpal/miniconda3/envs/sgsamadams/lib/python3.10/site-packages/pyro/__init__.py", line 4, in <module>
+    import pyro.poutine as poutine
+  File "/disk/homeDIRS/rrajpal/miniconda3/envs/sgsamadams/lib/python3.10/site-packages/pyro/poutine/__init__.py", line 4, in <module>
+    from .handlers import (
+  File "/disk/homeDIRS/rrajpal/miniconda3/envs/sgsamadams/lib/python3.10/site-packages/pyro/poutine/handlers.py", line 60, in <module>
+    from .collapse_messenger import CollapseMessenger
+  File "/disk/homeDIRS/rrajpal/miniconda3/envs/sgsamadams/lib/python3.10/site-packages/pyro/poutine/collapse_messenger.py", line 7, in <module>
+    from pyro.distributions.distribution import COERCIONS
+  File "/disk/homeDIRS/rrajpal/miniconda3/envs/sgsamadams/lib/python3.10/site-packages/pyro/distributions/__init__.py", line 4, in <module>
+    import pyro.distributions.torch_patch  # noqa F403
+  File "/disk/homeDIRS/rrajpal/miniconda3/envs/sgsamadams/lib/python3.10/site-packages/pyro/distributions/torch_patch.py", line 10, in <module>
+    assert torch.__version__.startswith("1.")
+AssertionError

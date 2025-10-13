@@ -19,10 +19,10 @@ from sacred import Experiment
 from sacred.utils import apply_backspaces_and_linefeeds
 from sacred.observers import FileStorageObserver
 
-from bnn_priors.data import UCI, CIFAR10, Synthetic
+from bnn_priors.data import Synthetic # UCI, CIFAR10, 
 from bnn_priors.models import RaoBDenseNet, DenseNet, PreActResNet18, PreActResNet34
 from bnn_priors.prior import LogNormal
-from bnn_priors import prior
+#from bnn_priors import priorchro
 import bnn_priors.inference
 from bnn_priors import exp_utils
 from bnn_priors.exp_utils import get_prior

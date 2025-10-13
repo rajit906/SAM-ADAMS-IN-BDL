@@ -21,8 +21,8 @@ def plot_samplers(alpha, h, gamma, beta, grad_U,
     print('---- Finished running ZBAOABZ ----')
 
     # --- Plotting setup ---
-    fig = plt.figure(figsize=(12, 24))
-    gs = fig.add_gridspec(8, 2, height_ratios=[2, 1, 1, 1, 1, 1, 1, 1], hspace=0.5)
+    fig = plt.figure(figsize=(8, 8))
+    gs = fig.add_gridspec(2, 2, hspace=0.25)
 
     # --- Determine shared equal scaling ---
     all_y = np.concatenate([samples_baoab[:, 0], samples_zbaoabz[:, 0]])
@@ -101,12 +101,12 @@ def plot_samplers(alpha, h, gamma, beta, grad_U,
     # ax_right.legend()
 
     # --- Row 3: Step size traces ---
-    ax_left = fig.add_subplot(gs[3, 0])
+    ax_left = fig.add_subplot(gs[1, 0])
     ax_left.plot(traces_baoab[::plot_stride, 4], lw=0.7)
     ax_left.set_title("BAOAB trace: dt (step size)")
     ax_left.set_xlabel("Step")
 
-    ax_right = fig.add_subplot(gs[3, 1])
+    ax_right = fig.add_subplot(gs[1, 1])
     ax_right.plot(traces_zbaoabz[::plot_stride, 4], lw=0.7)
     ax_right.set_title("ZBAOABZ trace: dt (step size)")
     ax_right.set_xlabel("Step")
