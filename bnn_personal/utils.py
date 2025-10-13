@@ -4,6 +4,7 @@ import torch
 import random
 import numpy as np
 from datetime import datetime
+from scipy.stats import t
 
 def set_seed(seed):
     random.seed(seed)
@@ -20,9 +21,9 @@ def make_run_name(cfg):
         cfg.get("sampler", "sgld"),
         cfg.get("prior", "gaussian"),
         f"scale{cfg.get('prior_scale', 1.0)}",
-        f"lr{cfg.get('lr', 1e-2)}",
-        f"H{cfg.get('hidden', 128)}",
-        f"bs{cfg.get('batch_size', 128)}",
+        f"lr{cfg.get('lr', 1e-1)}",
+        f"H{cfg.get('hidden', 400)}",
+        f"bs{cfg.get('batch_size', 100)}",
         f"runs{cfg.get('run_id','0')}",
         datetime.now().strftime("%Y%m%d-%H%M%S"),
     ]
@@ -46,3 +47,14 @@ def dump_json(d, path):
 def load_json(path):
     with open(path, "r") as f:
         return json.load(f)
+
+
+def mean_confidence_interval(data, confidence=0.95):
+    """
+    Compute mean and confidence interval along axis=0.
+    """
+    data = np.array(data)
+    mean = np.mean(data, axis=0)
+    sem = np.std(data, axis=0, ddof=1) / np.sqrt(len(data))
+    h = sem * t.ppf((1 + confidence) / 2., len(data)-1)
+    return mean, h

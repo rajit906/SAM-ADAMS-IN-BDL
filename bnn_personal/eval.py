@@ -49,7 +49,7 @@ def predictive_metrics_from_weight_dicts(model_class, weight_dicts, dataloader, 
                 probs_accum = probs_accum + probs_arr
     probs_mean = probs_accum / len(weight_dicts)
     eps = 1e-12
-    nll = -np.mean(np.log(probs_mean[np.arange(len(ys)), ys] + eps))
+    nll = -np.mean(np.log(probs_mean[np.arange(len(ys)), ys] + eps)) # NOTE: NLL or Log posterior?
     acc = float((np.argmax(probs_mean, axis=1) == ys).mean())
     n_classes = probs_mean.shape[1]
     onehot = np.eye(n_classes)[ys]

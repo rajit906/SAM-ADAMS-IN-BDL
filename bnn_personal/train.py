@@ -1,4 +1,9 @@
-# TODO: Fix log prob, check eval metrics, fix+check priors. Fix SA-SGLD per parameter
+# TODO: 
+# Priors: Fix horseshoe. Check Laplace.
+# Samplers: Fix SA-SGLD per parameter. Rescale stepsize.
+# Train: Parallelize. Track stepsizes if not already. Chunk folders properly.
+# Eval: Should prior be included in BMA. Include reweighting.
+
 import os
 import math
 import torch
@@ -11,34 +16,38 @@ from samplers import SGLD, SASGLD
 from utils import set_seed, make_results_dir, make_run_name, save_pt, dump_json
 from eval import predictive_metrics_from_weight_dicts
 from tqdm import tqdm
+import ssl
+ssl._create_default_https_context = ssl._create_unverified_context
 
 # -------------------------
 # config (edit as needed)
 # -------------------------
 cfg = dict(
-    sampler="sasgld",           # "sgld" or "sasgld"
-    prior="horseshoe",         # "gaussian","laplace","horseshoe" (for weights)
+    sampler="sgld",           # "sgld" or "sasgld"
+    prior="laplace",         # "gaussian","laplace","horseshoe" (for weights)
     prior_scale=1.0,
     bias_prior_scale=1.0,
-    lr=1e-3,
+    lr=0.1, # dtau for SA-SGLD
     temperature=1.0,
+    ### Unique to SA-SGLD
     alpha=1.0,
-    m=1e-6,
-    M=1.0,
-    r=1.0,
-    s=1.0,
-    init_z=1.0,
-    hidden=128,
-    batch_size=128,
-    epochs=3,
-    burnin_batches=200,
+    m=0.1,
+    M=10.0,
+    r=2.0,
+    s=0.5,
+    init_z=0.,
+    ###
+    hidden=200,
+    batch_size=100,#100,
+    epochs=4,#400,
+    burnin_batches=100,#1000,
     save_every=100,            # save a sample every N batches (after burnin)
-    validate_every=1,          # validate every N epochs
-    num_runs=3,
+    validate_every=1,#25,          # validate every N epochs
+    num_runs=2,#10,
     device="cuda" if torch.cuda.is_available() else "cpu",
-    eval_device="cpu",         # device used for post-training evaluation ("cpu" or "cuda")
+    eval_device="cuda" if torch.cuda.is_available() else "cpu",         # device used for post-training evaluation ("cpu" or "cuda")
     results_dir="results",
-    seed=1234,
+    seed=0,
 )
 
 def build_dataloaders(batch_size):
@@ -154,12 +163,11 @@ def run_single(cfg, run_id=0):
     eval_device = cfg.get("eval_device", "cpu")
     test_metrics = {}
     if len(samples) > 0:
-        try:
-            test_metrics = predictive_metrics_from_weight_dicts(MLP, samples, test_loader, device=eval_device)
-        except Exception as e:
-            print("Evaluation failed:", e)
-            test_metrics = {}
-
+        test_metrics =  predictive_metrics_from_weight_dicts(
+                                lambda: MLP(hidden=cfg["hidden"]),  # ✅ correct model shape
+                                samples,
+                                test_loader,
+                                device=eval_device)
     # Save everything in one .pt file (weights_only + histories + metrics)
     results_dir = make_results_dir(cfg["results_dir"])
     run_cfg = {**cfg, "run_id": run_id}
