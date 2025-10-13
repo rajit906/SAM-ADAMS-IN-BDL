@@ -1,5 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
+
+from toy.samplers import step_OLD, step_ZOLD
 from utils import ess, run_sampler
 from samplers import step_BAOAB_SGHMC, step_ZBAOABZ_SGHMC
 
@@ -166,5 +168,76 @@ def plot_samplers(alpha, h, gamma, beta, grad_U,
     # ax_right.set_xlabel("Step")
     # ax_right.set_ylabel("Average")
     # ax_right.legend()
+
+    plt.show()
+
+
+def plot_samplers_first_order(alpha, h, gamma, beta, grad_U,
+                              X, Y, LOGZ, levels,
+                              m, M, r, s, b, nsteps, burnin,
+                              record_trace=True, plot_stride=10):
+    samples_em, traces_em = run_sampler(
+        step_OLD, nsteps, h * b, gamma, alpha, beta,
+        grad_U, m, M, r, s, burnin=burnin, record_trace=record_trace)
+
+    print('---- Finished running BAOAB ----')
+
+    samples_zem, traces_zem = run_sampler(
+        step_ZOLD, nsteps, h, gamma, alpha, beta,
+        grad_U, m, M, r, s, burnin=burnin, record_trace=record_trace)
+
+    print('---- Finished running ZBAOABZ ----')
+
+    # --- Plotting setup ---
+    fig = plt.figure(figsize=(12, 24))
+    gs = fig.add_gridspec(8, 2, height_ratios=[2, 1, 1, 1, 1, 1, 1, 1], hspace=0.5)
+
+    # --- Determine shared equal scaling ---
+    all_y = np.concatenate([samples_em[:, 0], samples_zem[:, 0]])
+    all_x = np.concatenate([samples_em[:, 1], samples_zem[:, 1]])
+
+    x_range = all_x.max() - all_x.min()
+    y_range = all_y.max() - all_y.min()
+    max_range = max(x_range, y_range) / 2.0
+
+    mid_x = (all_x.max() + all_x.min()) / 2.0
+    mid_y = (all_y.max() + all_y.min()) / 2.0
+
+    xlim = (mid_x - max_range, mid_x + max_range)
+    ylim = (mid_y - max_range, mid_y + max_range)
+
+    # --- Row 0: Contours + scatter (no lines, transparency) ---
+    ax0 = fig.add_subplot(gs[0, 0])
+    ax0.contourf(X, Y, LOGZ, levels=levels, cmap='viridis')
+    ax0.scatter(samples_em[::plot_stride, 1], samples_em[::plot_stride, 0],
+                s=5, color='red', alpha=0.5)
+    ax0.set_title(f'BAOAB (h={h}, γ={gamma}, α={alpha})')
+    ax0.set_xlabel('x'); ax0.set_ylabel('y')
+    ax0.set_xlim(xlim); ax0.set_ylim(ylim); ax0.set_aspect('equal', 'box')
+
+    ax1 = fig.add_subplot(gs[0, 1])
+    ax1.contourf(X, Y, LOGZ, levels=levels, cmap='viridis')
+    ax1.scatter(samples_zem[::plot_stride, 1], samples_zem[::plot_stride, 0],
+                s=5, color='red', alpha=0.5)
+    ax1.set_title(f'ZBAOABZ (h={h}, γ={gamma}, α={alpha})')
+    ax1.set_xlabel('x'); ax1.set_ylabel('y')
+    ax1.set_xlim(xlim); ax1.set_ylim(ylim); ax1.set_aspect('equal', 'box')
+
+    # === If record_trace is False, stop here ===
+    if not record_trace:
+        plt.tight_layout()
+        plt.show()
+        return
+
+    # --- Row 3: Step size traces ---
+    ax_left = fig.add_subplot(gs[3, 0])
+    ax_left.plot(traces_em[::plot_stride, 4], lw=0.7)
+    ax_left.set_title("BAOAB trace: dt (step size)")
+    ax_left.set_xlabel("Step")
+
+    ax_right = fig.add_subplot(gs[3, 1])
+    ax_right.plot(traces_zem[::plot_stride, 4], lw=0.7)
+    ax_right.set_title("ZBAOABZ trace: dt (step size)")
+    ax_right.set_xlabel("Step")
 
     plt.show()
