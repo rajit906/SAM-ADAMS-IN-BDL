@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
-
+import matplotlib
+matplotlib.rcParams['text.usetex'] = False
 
 def sub_sample(samples, max_samples=1000):
     n_rows, n_cols = samples.shape
@@ -19,13 +20,13 @@ def plot_contour(
     ylim,
     geodesics,
     file_name="figs/contours.png",
-    xaxes=[r"$\boldsymbol{\theta}_{1}$", r"$\boldsymbol{\theta}_{2}$"],
+    xaxes=[r"θ₁", r"θ₂"],
 ):
 
     plt.rcParams["font.size"] = 22
-    plt.rcParams["text.usetex"] = True
+    #plt.rcParams["text.usetex"] = True
     # https://stackoverflow.com/a/14324826, in order to use \boldsymbol
-    plt.rcParams["text.latex.preamble"] = r"\usepackage{amsmath}"
+    #plt.rcParams["text.latex.preamble"] = r"\usepackage{amsmath}"
 
     x0 = np.arange(xlim[0], xlim[1], 0.05)
     x1 = np.arange(ylim[0], ylim[1], 0.05)

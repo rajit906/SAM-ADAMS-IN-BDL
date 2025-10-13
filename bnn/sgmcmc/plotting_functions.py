@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
-
+import matplotlib
+matplotlib.rcParams['text.usetex'] = False
 
 def sub_sample(samples, max_samples=1000):
     n_rows, n_cols = samples.shape
@@ -21,13 +22,13 @@ def plot_samples(
     title="samples",
     # Madapt=1000,
     # delta=0.2,
-    xaxes=[r"$\boldsymbol{\theta}_{1}$", r"$\boldsymbol{\theta}_{2}$"],
+    xaxes=[r"θ₁", r"θ₂"],
     custom=False,
     file_name_custom="figs/samples.png",
 ):
-    plt.rcParams['text.usetex'] = True
+    #plt.rcParams['text.usetex'] = True
     # https://stackoverflow.com/a/14324826, in order to use \boldsymbol
-    plt.rcParams["text.latex.preamble"] = r'\usepackage{amsmath}'
+    #plt.rcParams["text.latex.preamble"] = r'\usepackage{amsmath}'
     
     f = lambda x: (M.logp(x), M.dlogp(x))
     if densities:
