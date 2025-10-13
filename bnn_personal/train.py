@@ -1,3 +1,4 @@
+# TODO: Fix log prob, check eval metrics, fix+check priors. Fix SA-SGLD per parameter
 import os
 import math
 import torch
