@@ -8,7 +8,7 @@ def run_sampler(stepper, nsteps, h, gamma, alpha, beta,
     """
     Runs a sampler for given potential and returns samples & traces.
     """
-    x = np.array([5.0, 5.0])
+    x = np.array([1.0, 1.0])
     p = np.array([0.0, 0.0])
     z = 0.0
     samples = np.zeros((nsteps, 2))
