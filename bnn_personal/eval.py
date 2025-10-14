@@ -17,40 +17,72 @@ def _expected_calibration_error(probs, labels, n_bins=15):
             ece += abs(avg_confidence - accuracy_in_bin) * prop_in_bin
     return ece
 
-def predictive_metrics_from_weight_dicts(model_class, weight_dicts, dataloader, device="cpu"):
+def predictive_metrics_from_weight_dicts(model_class, weight_dicts, dataloader,
+                                         device="cpu", psi_history=None):
     """
-    weight_dicts: list of dicts compatible with model.load_state_dict (weights only)
+    weight_dicts: list of dicts with saved model weights
+    psi_history: list of dicts mapping param_name -> psi value (optional, SA-SGLD)
     """
     if len(weight_dicts) == 0:
         raise ValueError("No samples provided for evaluation")
+
+    # ---- helper: detect empty psi_history (SGLD case) ----
+    def _is_effectively_empty_psi(ph):
+        return ph is None or len(ph) == 0 or all(len(d) == 0 for d in ph)
+
+    # ---- compute sample weights ----
+    if _is_effectively_empty_psi(psi_history):
+        sample_weights = np.ones(len(weight_dicts), dtype=np.float64)
+    else:
+        w_list = []
+        for psi_dict in psi_history:
+            vals = [v for v in psi_dict.values() if v is not None]
+            w_list.append(float(np.mean(vals)) if len(vals) > 0 else 1.0)
+        sample_weights = np.array(w_list, dtype=np.float64)
+
+    sample_weights = sample_weights / np.sum(sample_weights)  # normalize
+
+    # ---- BMA predictive loop ----
     device = torch.device(device)
     model = model_class().to(device).eval()
-    probs_accum = None
+    all_probs_weighted = None
     ys = None
+
     with torch.no_grad():
-        for w in weight_dicts:
+        for i, w in enumerate(weight_dicts):
             model.load_state_dict(w)
-            all_probs = []
-            all_labels = []
+
+            probs_list = []
+            labels_list = []
             for xb, yb in dataloader:
                 xb = xb.to(device)
                 logits = model(xb)
                 probs = F.softmax(logits, dim=1).cpu().numpy()
-                all_probs.append(probs)
-                all_labels.append(yb.numpy())
-            probs_arr = np.concatenate(all_probs, axis=0)
-            labels_arr = np.concatenate(all_labels, axis=0)
-            if probs_accum is None:
-                probs_accum = probs_arr
+                probs_list.append(probs)
+                labels_list.append(yb.numpy())
+
+            probs_arr = np.concatenate(probs_list, axis=0)
+            labels_arr = np.concatenate(labels_list, axis=0)
+
+            if ys is None:
                 ys = labels_arr
+
+            weighted_probs = sample_weights[i] * probs_arr
+            if all_probs_weighted is None:
+                all_probs_weighted = weighted_probs
             else:
-                probs_accum = probs_accum + probs_arr
-    probs_mean = probs_accum / len(weight_dicts)
+                all_probs_weighted += weighted_probs
+
+    # ---- compute metrics ----
     eps = 1e-12
-    nll = -np.mean(np.log(probs_mean[np.arange(len(ys)), ys] + eps)) # NOTE: NLL or Log posterior?
-    acc = float((np.argmax(probs_mean, axis=1) == ys).mean())
-    n_classes = probs_mean.shape[1]
+    nll = -np.mean(np.log(all_probs_weighted[np.arange(len(ys)), ys] + eps))
+    acc = float((np.argmax(all_probs_weighted, axis=1) == ys).mean())
+
+    n_classes = all_probs_weighted.shape[1]
     onehot = np.eye(n_classes)[ys]
-    brier = float(np.mean(np.sum((probs_mean - onehot) ** 2, axis=1)))
-    ece = float(_expected_calibration_error(probs_mean, ys, n_bins=15))
-    return {"nll": float(nll), "acc": float(acc), "brier": float(brier), "ece": float(ece)}
+    brier = float(np.mean(np.sum((all_probs_weighted - onehot) ** 2, axis=1)))
+
+    ece = float(_expected_calibration_error(all_probs_weighted, ys, n_bins=15))
+
+    return {"nll": nll, "acc": acc, "brier": brier, "ece": ece}
+

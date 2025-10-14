@@ -33,10 +33,10 @@ class SASGLD(Optimizer):
     Hyperparams in group defaults: alpha, m, M, r, s, init_z
     """
     def __init__(self, params, lr, num_data, temperature=1.0,
-                 alpha=1.0, m=1e-6, M=1.0, r=1.0, s=1.0, init_z=1.0):
+                 alpha=1.0, m=1e-6, M=1.0, r=0.25, s=2., Omega=50000, init_z=1.0):
         defaults = dict(
             lr=lr, num_data=num_data, temperature=temperature,
-            alpha=alpha, m=m, M=M, r=r, s=s, init_z=init_z
+            alpha=alpha, m=m, M=M, r=r, s=s, Omega=Omega, init_z=init_z
         )
         super().__init__(params, defaults)
 
@@ -45,11 +45,11 @@ class SASGLD(Optimizer):
             for p in g["params"]:
                 state = self.state[p]
                 if "z" not in state:
-                    state["z"] = float(g["init_z"])
+                    state["z"] = float(0.)
                 if "psi" not in state:
-                    state["psi"] = float(1.0)
+                    state["psi"] = psi_fn(state["z"], m, M, r)
                 if "dt" not in state:
-                    state["dt"] = float(g["lr"] / g["num_data"])
+                    state["dt"] = state["psi"] * lr
 
     @torch.no_grad()
     def step(self, closure=None):
@@ -67,6 +67,7 @@ class SASGLD(Optimizer):
             r = group["r"]
             s = group["s"]
             T = group["temperature"]
+            Omega = group["Omega"]
 
             for p in group["params"]:
                 if p.grad is None:
@@ -75,7 +76,7 @@ class SASGLD(Optimizer):
                 g_sq = float((p.grad.view(-1) ** 2).sum().item())
                 g_norm = math.sqrt(g_sq)
                 rho = math.exp(-alpha * dtau)
-                g_val = g_norm ** s
+                g_val = g_norm ** s / Omega
                 state["z"] = rho * state["z"] + (1.0 - rho) * (g_val / alpha)
                 state["psi"] = float(psi_fn(state["z"], m, M, r))
                 state["dt"] = float(state["psi"] * dtau)

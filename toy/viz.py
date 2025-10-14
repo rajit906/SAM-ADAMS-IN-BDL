@@ -35,8 +35,8 @@ def plot_samplers(alpha, h, gamma, beta, grad_U,
     mid_x = (all_x.max() + all_x.min()) / 2.0
     mid_y = (all_y.max() + all_y.min()) / 2.0
 
-    xlim = (mid_x - max_range, mid_x + max_range)
-    ylim = (mid_y - max_range, mid_y + max_range)
+    xlim = (-5., 5.)
+    ylim = (-5., 5.)
 
     # --- Row 0: Contours + scatter (no lines, transparency) ---
     ax0 = fig.add_subplot(gs[0, 0])

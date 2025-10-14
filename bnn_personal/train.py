@@ -1,8 +1,4 @@
-# TODO: 
-# Priors: Fix horseshoe later.
-# Samplers: Fix SA-SGLD per parameter. Include reweighting.
-# Track NLL as well.
-
+# TODO: Fix log prob, check eval metrics, fix+check priors. Fix SA-SGLD per parameter
 import os
 import math
 import torch
@@ -15,37 +11,34 @@ from samplers import SGLD, SASGLD
 from utils import set_seed, make_results_dir, make_run_name, save_pt, dump_json
 from eval import predictive_metrics_from_weight_dicts
 from tqdm import tqdm
-import ssl
-ssl._create_default_https_context = ssl._create_unverified_context
 
 # -------------------------
 # config (edit as needed)
 # -------------------------
 cfg = dict(
-    sampler="sgld",           # "sgld" or "sasgld"
-    prior="laplace",         # "gaussian","laplace","horseshoe" (for weights)
-    prior_scale=1.0,         # Edit
+    sampler="sasgld",           # "sgld" or "sasgld"
+    prior="horseshoe",         # "gaussian","laplace","horseshoe" (for weights)
+    prior_scale=1.0,
     bias_prior_scale=1.0,
-    lr=0.1, # dtau for SA-SGLD
+    lr=1e-3,
     temperature=1.0,
-    ### Unique to SA-SGLD
     alpha=1.0,
-    m=0.1,
-    M=10.0,
-    r=2.0,
-    s=0.5,
-    init_z=0.,
-    ###
-    hidden=1200,
-    batch_size=100,
-    epochs=400,
-    burnin_batches=1000,
+    m=1e-6,
+    M=1.0,
+    r=1.0,
+    s=1.0,
+    init_z=1.0,
+    hidden=128,
+    batch_size=128,
+    epochs=3,
+    burnin_batches=200,
     save_every=100,            # save a sample every N batches (after burnin)
-    num_runs=10,
+    validate_every=1,          # validate every N epochs
+    num_runs=3,
     device="cuda" if torch.cuda.is_available() else "cpu",
-    eval_device="cuda" if torch.cuda.is_available() else "cpu",         # device used for post-training evaluation ("cpu" or "cuda")
+    eval_device="cpu",         # device used for post-training evaluation ("cpu" or "cuda")
     results_dir="results",
-    seed=0,
+    seed=1234,
 )
 
 def build_dataloaders(batch_size):
@@ -61,24 +54,15 @@ def build_dataloaders(batch_size):
     test_loader = DataLoader(test, batch_size=batch_size, shuffle=False)
     return train_loader, val_loader, test_loader, n
 
-def log_prior_for_model(model, prior_name, global_scale, bias_global_scale):
+def log_prior_for_model(model, prior_name, scale, bias_scale):
     lp = 0.0
     prior_fn = PRIORS[prior_name]
     for name, p in model.named_parameters():
-        # Bias prior stays simple
         if "bias" in name:
-            lp = lp + PRIORS["gaussian"](p, bias_global_scale)
+            lp = lp + PRIORS["gaussian"](p, bias_scale)
         else:
-            # === scale based on layer width (fan-in) ===
-            if p.dim() > 1:
-                fan_in = p.size(1)  # weight matrix shape [out_dim, in_dim]
-            else:
-                fan_in = p.numel()
-            layer_scale = global_scale / math.sqrt(fan_in)
-            # === apply the chosen prior ===
-            lp = lp + prior_fn(p, layer_scale)
+            lp = lp + prior_fn(p, scale)
     return lp
-
 
 def run_single(cfg, run_id=0):
     set_seed(cfg.get("seed", 0) + run_id)
@@ -147,7 +131,7 @@ def run_single(cfg, run_id=0):
                     dt_history.append({})
 
             # validation periodic
-            if total_batches % len(train_loader) == 0:
+            if total_batches % (len(train_loader) * cfg["validate_every"]) == 0:
                 model.eval()
                 val_loss = 0.0
                 val_acc = 0.0
@@ -170,11 +154,12 @@ def run_single(cfg, run_id=0):
     eval_device = cfg.get("eval_device", "cpu")
     test_metrics = {}
     if len(samples) > 0:
-        test_metrics =  predictive_metrics_from_weight_dicts(
-                                lambda: MLP(hidden=cfg["hidden"]),  # ✅ correct model shape
-                                samples,
-                                test_loader,
-                                device=eval_device)
+        try:
+            test_metrics = predictive_metrics_from_weight_dicts(MLP, samples, test_loader, device=eval_device, psi_history=psi_history)
+        except Exception as e:
+            print("Evaluation failed:", e)
+            test_metrics = {}
+
     # Save everything in one .pt file (weights_only + histories + metrics)
     results_dir = make_results_dir(cfg["results_dir"])
     run_cfg = {**cfg, "run_id": run_id}
