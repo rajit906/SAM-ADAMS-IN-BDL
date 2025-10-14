@@ -1,8 +1,6 @@
 import torch
 import torch.nn.functional as F
 import numpy as np
-from sklearn.metrics import brier_score_loss
-import math
 
 def _expected_calibration_error(probs, labels, n_bins=15):
     confidences = np.max(probs, axis=1)

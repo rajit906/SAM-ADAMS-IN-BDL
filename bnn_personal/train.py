@@ -1,8 +1,7 @@
 # TODO: 
-# Priors: Fix horseshoe. Check Laplace.
-# Samplers: Fix SA-SGLD per parameter. Rescale stepsize.
-# Train: Parallelize. Track stepsizes if not already. Chunk folders properly.
-# Eval: Should prior be included in BMA. Include reweighting.
+# Priors: Fix horseshoe later.
+# Samplers: Fix SA-SGLD per parameter. Include reweighting.
+# Track NLL as well.
 
 import os
 import math
@@ -25,7 +24,7 @@ ssl._create_default_https_context = ssl._create_unverified_context
 cfg = dict(
     sampler="sgld",           # "sgld" or "sasgld"
     prior="laplace",         # "gaussian","laplace","horseshoe" (for weights)
-    prior_scale=1.0,
+    prior_scale=1.0,         # Edit
     bias_prior_scale=1.0,
     lr=0.1, # dtau for SA-SGLD
     temperature=1.0,
@@ -37,13 +36,12 @@ cfg = dict(
     s=0.5,
     init_z=0.,
     ###
-    hidden=200,
-    batch_size=100,#100,
-    epochs=4,#400,
-    burnin_batches=100,#1000,
+    hidden=1200,
+    batch_size=100,
+    epochs=400,
+    burnin_batches=1000,
     save_every=100,            # save a sample every N batches (after burnin)
-    validate_every=1,#25,          # validate every N epochs
-    num_runs=2,#10,
+    num_runs=10,
     device="cuda" if torch.cuda.is_available() else "cpu",
     eval_device="cuda" if torch.cuda.is_available() else "cpu",         # device used for post-training evaluation ("cpu" or "cuda")
     results_dir="results",
@@ -63,15 +61,24 @@ def build_dataloaders(batch_size):
     test_loader = DataLoader(test, batch_size=batch_size, shuffle=False)
     return train_loader, val_loader, test_loader, n
 
-def log_prior_for_model(model, prior_name, scale, bias_scale):
+def log_prior_for_model(model, prior_name, global_scale, bias_global_scale):
     lp = 0.0
     prior_fn = PRIORS[prior_name]
     for name, p in model.named_parameters():
+        # Bias prior stays simple
         if "bias" in name:
-            lp = lp + PRIORS["gaussian"](p, bias_scale)
+            lp = lp + PRIORS["gaussian"](p, bias_global_scale)
         else:
-            lp = lp + prior_fn(p, scale)
+            # === scale based on layer width (fan-in) ===
+            if p.dim() > 1:
+                fan_in = p.size(1)  # weight matrix shape [out_dim, in_dim]
+            else:
+                fan_in = p.numel()
+            layer_scale = global_scale / math.sqrt(fan_in)
+            # === apply the chosen prior ===
+            lp = lp + prior_fn(p, layer_scale)
     return lp
+
 
 def run_single(cfg, run_id=0):
     set_seed(cfg.get("seed", 0) + run_id)
@@ -140,7 +147,7 @@ def run_single(cfg, run_id=0):
                     dt_history.append({})
 
             # validation periodic
-            if total_batches % (len(train_loader) * cfg["validate_every"]) == 0:
+            if total_batches % len(train_loader) == 0:
                 model.eval()
                 val_loss = 0.0
                 val_acc = 0.0

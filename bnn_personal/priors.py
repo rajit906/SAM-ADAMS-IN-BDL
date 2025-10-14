@@ -9,10 +9,10 @@ def laplace_logprior(p, scale):
     b = scale
     return torch.sum(-torch.abs(p) / b - math.log(2.0 * b))
 
-def horseshoe_logprior(p, scale):
-    # simple heavy-tailed proxy for horseshoe (unnormalized)
-    x = (p / scale) ** 2
-    return torch.sum(-0.5 * torch.log1p(x))
+def horseshoe_logprior(p, scale, eps=1e-8):
+    # Regularized Horseshoe prior (unnormalized, good for SGD)
+    # Vehtari 2017 apparently
+    return -torch.sum(torch.log1p((p / (scale + eps))**2 / 2))
 
 PRIORS = {
     "gaussian": gaussian_logprior,
