@@ -180,13 +180,13 @@ def plot_samplers_first_order(alpha, h, gamma, beta, grad_U,
         step_OLD, nsteps, h * b, gamma, alpha, beta,
         grad_U, m, M, r, s, burnin=burnin, record_trace=record_trace)
 
-    print('---- Finished running BAOAB ----')
+    print('---- Finished running SGLD ----')
 
     samples_zem, traces_zem = run_sampler(
         step_ZOLD, nsteps, h, gamma, alpha, beta,
         grad_U, m, M, r, s, burnin=burnin, record_trace=record_trace)
 
-    print('---- Finished running ZBAOABZ ----')
+    print('---- Finished running ZSGLD ----')
 
     # --- Plotting setup ---
     fig = plt.figure(figsize=(12, 24))
@@ -211,7 +211,7 @@ def plot_samplers_first_order(alpha, h, gamma, beta, grad_U,
     ax0.contourf(X, Y, LOGZ, levels=levels, cmap='viridis')
     ax0.scatter(samples_em[::plot_stride, 1], samples_em[::plot_stride, 0],
                 s=5, color='red', alpha=0.5)
-    ax0.set_title(f'BAOAB (h={h}, γ={gamma}, α={alpha})')
+    ax0.set_title(f'SGLD (h={h}, γ={gamma}, α={alpha})')
     ax0.set_xlabel('x'); ax0.set_ylabel('y')
     ax0.set_xlim(xlim); ax0.set_ylim(ylim); ax0.set_aspect('equal', 'box')
 
@@ -219,7 +219,7 @@ def plot_samplers_first_order(alpha, h, gamma, beta, grad_U,
     ax1.contourf(X, Y, LOGZ, levels=levels, cmap='viridis')
     ax1.scatter(samples_zem[::plot_stride, 1], samples_zem[::plot_stride, 0],
                 s=5, color='red', alpha=0.5)
-    ax1.set_title(f'ZBAOABZ (h={h}, γ={gamma}, α={alpha})')
+    ax1.set_title(f'ZSGLD (h={h}, γ={gamma}, α={alpha})')
     ax1.set_xlabel('x'); ax1.set_ylabel('y')
     ax1.set_xlim(xlim); ax1.set_ylim(ylim); ax1.set_aspect('equal', 'box')
 
@@ -232,12 +232,12 @@ def plot_samplers_first_order(alpha, h, gamma, beta, grad_U,
     # --- Row 3: Step size traces ---
     ax_left = fig.add_subplot(gs[3, 0])
     ax_left.plot(traces_em[::plot_stride, 4], lw=0.7)
-    ax_left.set_title("BAOAB trace: dt (step size)")
+    ax_left.set_title("SGLD trace: dt (step size)")
     ax_left.set_xlabel("Step")
 
     ax_right = fig.add_subplot(gs[3, 1])
     ax_right.plot(traces_zem[::plot_stride, 4], lw=0.7)
-    ax_right.set_title("ZBAOABZ trace: dt (step size)")
+    ax_right.set_title("ZSGLD trace: dt (step size)")
     ax_right.set_xlabel("Step")
 
     plt.show()
