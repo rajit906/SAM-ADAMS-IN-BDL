@@ -12,7 +12,7 @@ def psi_fn(z, m, M, r):
 # ============================================================
 # BAOAB (standard SGHMC / Langevin splitting)
 # ============================================================
-@njit
+# @njit
 def step_BAOAB_SGHMC(x, p, z, h, gamma, alpha, beta, grad_U, m, M, r, s):
     """
     One BAOAB step for given potential grad_U(x).
@@ -58,7 +58,7 @@ def step_EM_SGHMC(x, p, z, h, gamma, alpha, beta, grad_U, m, M, r, s):
 # ============================================================
 # ZBAOABZ (SAM-ADAMS adaptive step)
 # ============================================================
-@njit
+# @njit
 def step_ZBAOABZ_SGHMC(x, p, z, dtau, gamma, alpha, beta,
                  grad_U, m, M, r, s):
     """
@@ -118,7 +118,7 @@ def step_EM_ZSGHMC(x, p, z, dtau, gamma, alpha, beta,
 # ============================================================
 # Overdamped Langevin (fixed step, baseline)
 # ============================================================
-@njit
+# @njit
 def step_OLD(x, p, z, h, gamma, alpha, beta, grad_U, m, M, r, s):
     """
     Standard overdamped Langevin.
@@ -133,7 +133,7 @@ def step_OLD(x, p, z, h, gamma, alpha, beta, grad_U, m, M, r, s):
 # ============================================================
 # Adaptive Overdamped Langevin (Z dynamics)
 # ============================================================
-@njit
+# @njit
 def step_ZOLD(x, p, z, dtau, gamma, alpha, beta, grad_U, m, M, r, s):
     """
     Adaptive overdamped Langevin with auxiliary Z variable.

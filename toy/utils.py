@@ -1,14 +1,14 @@
 import numpy as np
 from numba import njit
 
-@njit
+# @njit
 def run_sampler(stepper, nsteps, h, gamma, alpha, beta,
                 grad_U, m, M, r, s,
                 burnin, record_trace=False):
     """
     Runs a sampler for given potential and returns samples & traces.
     """
-    x = np.array([1.0, 1.0])
+    x = np.array([5.0, 5.0])
     p = np.array([0.0, 0.0])
     z = 0.0
     samples = np.zeros((nsteps, 2))
