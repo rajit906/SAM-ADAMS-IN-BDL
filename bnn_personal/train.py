@@ -1,5 +1,8 @@
-# TODO: Fix log prob, check eval metrics, fix+check priors. Fix SA-SGLD per parameter
+# TODO: Fix horseshoe later. Make sure everything runs on GPU before parallel run.
+# Determine whether to fix initialization or not.
+# When sampler == sasgld, include the config for m,M,r,s,alpha. Remove double sampler.
 import os
+import torch.multiprocessing as mp
 import math
 import torch
 import torch.nn.functional as F
@@ -11,35 +14,48 @@ from samplers import SGLD, SASGLD
 from utils import set_seed, make_results_dir, make_run_name, save_pt, dump_json
 from eval import predictive_metrics_from_weight_dicts
 from tqdm import tqdm
+import ssl
+ssl._create_default_https_context = ssl._create_unverified_context
 
-# -------------------------
-# config (edit as needed)
-# -------------------------
-cfg = dict(
-    sampler="sasgld",           # "sgld" or "sasgld"
-    prior="horseshoe",         # "gaussian","laplace","horseshoe" (for weights)
-    prior_scale=1.0,
-    bias_prior_scale=1.0,
-    lr=1e-3,
-    temperature=1.0,
-    alpha=1.0,
-    m=1e-6,
-    M=1.0,
-    r=1.0,
-    s=1.0,
-    init_z=1.0,
-    hidden=128,
-    batch_size=128,
-    epochs=3,
-    burnin_batches=200,
-    save_every=100,            # save a sample every N batches (after burnin)
-    validate_every=1,          # validate every N epochs
-    num_runs=3,
-    device="cuda" if torch.cuda.is_available() else "cpu",
-    eval_device="cpu",         # device used for post-training evaluation ("cpu" or "cuda")
-    results_dir="results",
-    seed=1234,
-)
+import argparse
+
+def get_config():
+    parser = argparse.ArgumentParser()
+
+    # Main options
+    parser.add_argument("--sampler", type=str, default="sgld")
+    parser.add_argument("--prior", type=str, default="laplace")
+    parser.add_argument("--prior_scale", type=float, default=1.0)
+    parser.add_argument("--bias_prior_scale", type=float, default=1.0)
+    parser.add_argument("--lr", type=float, default=0.1)
+    parser.add_argument("--temperature", type=float, default=1.0)
+
+    # SA-SGLD specific
+    parser.add_argument("--alpha", type=float, default=1.0)
+    parser.add_argument("--m", type=float, default=0.1)
+    parser.add_argument("--M", type=float, default=10.0)
+    parser.add_argument("--r", type=float, default=0.25)
+    parser.add_argument("--s", type=float, default=2.0)
+    parser.add_argument("--init_z", type=float, default=0.0)
+    parser.add_argument("--Omega", type=int, default=50000)
+
+    # Model/training
+    parser.add_argument("--hidden", type=int, default=1200)
+    parser.add_argument("--batch_size", type=int, default=100)
+    parser.add_argument("--epochs", type=int, default=10)
+    parser.add_argument("--burnin_batches", type=int, default=0)
+    parser.add_argument("--save_every", type=int, default=100)
+    parser.add_argument("--num_runs", type=int, default=5)
+
+    # System
+    parser.add_argument("--results_dir", type=str, default="results")
+    parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--device", type=str, default="cuda")
+
+    args = parser.parse_args()
+    return vars(args)  # return as dictionary like before
+
+cfg = get_config()
 
 def build_dataloaders(batch_size):
     transform = transforms.Compose([transforms.ToTensor()])
@@ -54,15 +70,24 @@ def build_dataloaders(batch_size):
     test_loader = DataLoader(test, batch_size=batch_size, shuffle=False)
     return train_loader, val_loader, test_loader, n
 
-def log_prior_for_model(model, prior_name, scale, bias_scale):
+def log_prior_for_model(model, prior_name, global_scale, bias_global_scale):
     lp = 0.0
     prior_fn = PRIORS[prior_name]
     for name, p in model.named_parameters():
+        # Bias prior stays simple
         if "bias" in name:
-            lp = lp + PRIORS["gaussian"](p, bias_scale)
+            lp = lp + PRIORS["gaussian"](p, bias_global_scale)
         else:
-            lp = lp + prior_fn(p, scale)
+            # === scale based on layer width (fan-in) ===
+            if p.dim() > 1:
+                fan_in = p.size(1)  # weight matrix shape [out_dim, in_dim]
+            else:
+                fan_in = p.numel()
+            layer_scale = global_scale / math.sqrt(fan_in)
+            # === apply the chosen prior ===
+            lp = lp + prior_fn(p, layer_scale)
     return lp
+
 
 def run_single(cfg, run_id=0):
     set_seed(cfg.get("seed", 0) + run_id)
@@ -72,11 +97,11 @@ def run_single(cfg, run_id=0):
 
     # choose optimizer
     if cfg["sampler"].lower() == "sgld":
-        opt = SGLD(model.parameters(), lr=cfg["lr"], num_data=num_data, temperature=cfg["temperature"])
+        opt = SGLD(model.parameters(), lr=cfg["lr"], temperature=cfg["temperature"], num_data=num_data)
     else:
         opt = SASGLD(
-            model.parameters(), lr=cfg["lr"], num_data=num_data, temperature=cfg["temperature"],
-            alpha=cfg["alpha"], m=cfg["m"], M=cfg["M"], r=cfg["r"], s=cfg["s"], init_z=cfg["init_z"]
+            model.parameters(), lr=cfg["lr"], temperature=cfg["temperature"], num_data=num_data,
+            alpha=cfg["alpha"], m=cfg["m"], M=cfg["M"], r=cfg["r"], s=cfg["s"], Omega=cfg['Omega'], init_z=cfg["init_z"]
         )
 
     samples = []
@@ -98,9 +123,9 @@ def run_single(cfg, run_id=0):
 
             logits = model(xb)
             per_example_loss = criterion(logits, yb)
-            nll = per_example_loss.mean() * len(train_loader.dataset)
+            nll = per_example_loss.mean() * num_data
             lp = log_prior_for_model(model, cfg["prior"], cfg["prior_scale"], cfg["bias_prior_scale"])
-            potential = nll - lp
+            potential = (nll - lp)
 
             opt.zero_grad()
             potential.backward()
@@ -114,24 +139,24 @@ def run_single(cfg, run_id=0):
                 history["train_acc"].append(acc)
                 history["steps"].append(total_batches)
 
+            if hasattr(opt, "get_state_samples_info"):
+                    info = opt.get_state_samples_info(model)
+                    z_history.append(info["z"])
+                    psi_history.append(info["psi"])
+                    dt_history.append(info["dt"])
+            else:
+                    z_history.append({})
+                    psi_history.append({})
+                    dt_history.append({})
+
             # sampling logic
             if total_batches > cfg["burnin_batches"] and (total_batches - cfg["burnin_batches"]) % cfg["save_every"] == 0:
                 # save weights only (map param name -> tensor.cpu())
                 state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
                 samples.append(state)
-                # capture z/psi/dt info if SASGLD
-                if hasattr(opt, "get_state_samples_info"):
-                    info = opt.get_state_samples_info(model)
-                    z_history.append(info["z"])
-                    psi_history.append(info["psi"])
-                    dt_history.append(info["dt"])
-                else:
-                    z_history.append({})
-                    psi_history.append({})
-                    dt_history.append({})
 
             # validation periodic
-            if total_batches % (len(train_loader) * cfg["validate_every"]) == 0:
+            if total_batches % len(train_loader) == 0:
                 model.eval()
                 val_loss = 0.0
                 val_acc = 0.0
@@ -151,23 +176,33 @@ def run_single(cfg, run_id=0):
                 model.train()
 
     # After training, run evaluation on test set (using saved samples)
-    eval_device = cfg.get("eval_device", "cpu")
+    eval_device = cfg["device"]
     test_metrics = {}
     if len(samples) > 0:
-        try:
-            test_metrics = predictive_metrics_from_weight_dicts(MLP, samples, test_loader, device=eval_device, psi_history=psi_history)
-        except Exception as e:
-            print("Evaluation failed:", e)
-            test_metrics = {}
-
-    # Save everything in one .pt file (weights_only + histories + metrics)
+        test_metrics =  predictive_metrics_from_weight_dicts(
+                                lambda: MLP(hidden=cfg["hidden"]),
+                                samples,
+                                test_loader,
+                                device=eval_device,
+                                psi_history=psi_history)
+    
+    # Create experiment folder structure: results/sampler/experiment_name/
     results_dir = make_results_dir(cfg["results_dir"])
+    sampler_dir = os.path.join(results_dir, cfg["sampler"])
+    os.makedirs(sampler_dir, exist_ok=True)
+    
+    # Create experiment name (without run_id)
+    run_cfg_no_id = {k: v for k, v in cfg.items() if k != "num_runs"}
+    exp_name = make_run_name(run_cfg_no_id)
+    exp_dir = os.path.join(sampler_dir, exp_name)
+    os.makedirs(exp_dir, exist_ok=True)
+    
+    # Save as run_id.pt
+    save_path = os.path.join(exp_dir, f"{run_id}.pt")
     run_cfg = {**cfg, "run_id": run_id}
-    run_name = make_run_name(run_cfg)
-    save_path = os.path.join(results_dir, run_name + ".pt")
     payload = {
         "config": run_cfg,
-        "samples": samples,            # list of param-name -> tensor
+        "samples": samples,
         "z_history": z_history,
         "psi_history": psi_history,
         "dt_history": dt_history,
@@ -176,18 +211,25 @@ def run_single(cfg, run_id=0):
     }
     save_pt(payload, save_path)
     print(f"Saved run {run_id} -> {save_path}; n_samples={len(samples)}")
-    return save_path
+    return save_path, exp_dir
+
+def run_worker(run_id, cfg):
+    print(f"Starting run {run_id} on GPU {os.environ.get('CUDA_VISIBLE_DEVICES', 'CPU')}")
+    run_single(cfg, run_id)
 
 def main():
     set_seed(cfg.get("seed", 0))
-    rd = make_results_dir(cfg["results_dir"])
-    all_paths = []
-    for run in range(cfg["num_runs"]):
-        p = run_single(cfg, run)
-        all_paths.append(p)
-    # manifest
-    dump_json({"runs": all_paths}, os.path.join(rd, "manifest.json"))
-    print("All done. Manifest written.")
+    _ = make_results_dir(cfg["results_dir"])
+    processes = []
+
+    for run_id in range(cfg["num_runs"]):
+        p = mp.Process(target=run_worker, args=(run_id, cfg))
+        p.start()
+        processes.append(p)
+
+    for p in processes:
+        p.join()
 
 if __name__ == "__main__":
+    mp.set_start_method("spawn", force=True)
     main()

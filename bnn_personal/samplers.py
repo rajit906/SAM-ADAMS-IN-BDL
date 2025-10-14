@@ -35,7 +35,7 @@ class SASGLD(Optimizer):
     def __init__(self, params, lr, num_data, temperature=1.0,
                  alpha=1.0, m=1e-6, M=1.0, r=0.25, s=2., Omega=50000, init_z=1.0):
         defaults = dict(
-            lr=lr, num_data=num_data, temperature=temperature,
+            lr=lr, temperature=temperature, num_data=num_data,
             alpha=alpha, m=m, M=M, r=r, s=s, Omega=Omega, init_z=init_z
         )
         super().__init__(params, defaults)
@@ -60,7 +60,7 @@ class SASGLD(Optimizer):
 
         for group in self.param_groups:
             lr = group["lr"]
-            dtau = lr / group["num_data"]
+            dtau = lr / group['num_data']
             alpha = group["alpha"]
             m = group["m"]
             M = group["M"]

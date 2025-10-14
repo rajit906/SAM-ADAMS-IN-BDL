@@ -24,9 +24,11 @@ def make_run_name(cfg):
         f"lr{cfg.get('lr', 1e-1)}",
         f"H{cfg.get('hidden', 400)}",
         f"bs{cfg.get('batch_size', 100)}",
-        f"runs{cfg.get('run_id','0')}",
-        datetime.now().strftime("%Y%m%d-%H%M%S"),
+        #f"runs{cfg.get('run_id','0')}",
+        #datetime.now().strftime("%Y%m%d-%H%M%S"),
     ]
+    if cfg["sampler"] == "sasgld":
+        parts += [f"m{cfg['m']}", f"M{cfg['M']}", f"alpha{cfg['alpha']}", f"r{cfg['r']}", f"s{cfg['s']}"]
     return "_".join(map(str, parts))
 
 def ensure_parent(path):
@@ -47,7 +49,6 @@ def dump_json(d, path):
 def load_json(path):
     with open(path, "r") as f:
         return json.load(f)
-
 
 def mean_confidence_interval(data, confidence=0.95):
     """
