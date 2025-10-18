@@ -6,6 +6,7 @@ import numpy as np
 def psi_fn(z, m, M, r):
     """Bounded scaling function psi(z) in (m, M]."""
     return m * (z**r + M) / (z**r + m)
+    return m * (z ** r + M/m) / (z ** r + 1)
 
 # ============================================================
 # BAOAB (standard SGHMC / Langevin splitting)
@@ -51,8 +52,9 @@ def step_ZBAOABZ_SGHMC(x, p, z, dtau, gamma, alpha, beta, grad_U, m, M, r, s):
     """
     Adaptive BAOAB with auxiliary variable z.
     """
+    omega = 100
     # Z
-    g_val = np.linalg.norm(grad_U(x)) ** s
+    g_val = omega ** (-1) * np.linalg.norm(grad_U(x)) ** s
     rho = np.exp(- alpha * 0.5 * dtau)
     z = rho * z + (1.0 - rho) * g_val / alpha
     # Computing dt for this step
@@ -72,7 +74,7 @@ def step_ZBAOABZ_SGHMC(x, p, z, dtau, gamma, alpha, beta, grad_U, m, M, r, s):
     p -= 0.5 * dt * grad_U(x)
 
     # Z
-    g_val = np.linalg.norm(grad_U(x))
+    g_val = omega ** (-1) * np.linalg.norm(grad_U(x)) ** s
     z = rho * z + (1.0 - rho) * g_val / alpha
 
     return x, p, z, dt
@@ -99,8 +101,9 @@ def step_ZOLD(x, p, z, dtau, gamma, alpha, beta, grad_U, m, M, r, s):
     Adaptive overdamped Langevin with an auxiliary Z variable.
     No momentum p and no friction. Still tracks z to adapt step size.
     """
+    omega = 100
     # --- Z half step ---
-    g_val = np.linalg.norm(grad_U(x)) ** s
+    g_val = omega ** (-1) * np.linalg.norm(grad_U(x)) ** s
     rho = np.exp(- alpha * 0.5 * dtau)
     z = rho * z + (1.0 - rho) * g_val / alpha
 
@@ -112,7 +115,7 @@ def step_ZOLD(x, p, z, dtau, gamma, alpha, beta, grad_U, m, M, r, s):
     x = x - dt * grad_U(x) + noise
 
     # --- Z final half step ---
-    g_val = np.linalg.norm(grad_U(x)) ** s
+    g_val = omega ** (-1) * np.linalg.norm(grad_U(x)) ** s
     z = rho * z + (1.0 - rho) * g_val / alpha
 
     return x, p, z, dt

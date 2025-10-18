@@ -8,7 +8,7 @@ def run_sampler(stepper, nsteps, h, gamma, alpha, beta, grad_U, m, M, r, s, burn
     """
     Runs a sampler for a given potential and returns samples & traces.
     """
-    x = np.array([0.05, 0.05])
+    x = np.array([0.0, 0.0])
     p = np.array([0.0, 0.0])
     z = 0.0
     samples = np.zeros((nsteps, 2))
@@ -27,19 +27,33 @@ def run_sampler(stepper, nsteps, h, gamma, alpha, beta, grad_U, m, M, r, s, burn
 
     return samples, traces
 
-def autocorr_func_1d(x, max_lag=1000):
+# ---- Fast autocorr via FFT (Wiener–Khinchin) ----
+def autocorr_fft(x, max_lag=500):
+    x = np.asarray(x, dtype=np.float64)
+    n = x.size
+    x = x - x.mean()
+    # next power of two >= 2n-1 keeps FFT fast
+    nfft = 1 << ((2*n - 1).bit_length())
+    f = np.fft.rfft(x, n=nfft)
+    ac = np.fft.irfft(f * np.conj(f), n=nfft)[:n]
+    ac /= ac[0]  # normalise
+    return ac if max_lag is None else ac[:max_lag]
+
+# ---- ESS using Geyer’s initial positive sequence (paired sums) ----
+def ess(x, max_lag=None):
     n = len(x)
-    x = x - np.mean(x)
-    result = np.correlate(x, x, mode="full")
-    acf = result[result.size // 2:] / result[result.size // 2]
-    return acf[:max_lag]
-
-
-def ess(x, max_lag=1000):
-    acf = autocorr_func_1d(x, max_lag)
-    positive_acf = acf[acf > 0]
-    tau = 1 + 2 * np.sum(positive_acf[1:])
-    return len(x) / tau
+    if max_lag is None:
+        max_lag = n // 2
+    acf = autocorr_fft(x, max_lag=max_lag+2)  # a couple extra for pairing
+    s = 0.0
+    # sum pairs ρ_{2k-1} + ρ_{2k} until the pair sum goes negative
+    for k in range(1, len(acf)-1, 2):
+        pair = acf[k] + acf[k+1]
+        if pair <= 0:
+            break
+        s += pair
+    tau_int = 1.0 + 2.0 * s
+    return n / max(tau_int, 1.0)  # guard
 
 ############################## KL
 # ---------- 1) kNN entropy (Kozachenko–Leonenko) ----------

@@ -1,5 +1,5 @@
 import numpy as np
-from viz import plot_samplers, plot_gmm_color, contour
+from viz import plot_samplers, plot_gmm_color, contour, plot_grid_samples
 from sklearn.mixture import GaussianMixture
 
 # ====================================================
@@ -8,31 +8,19 @@ from sklearn.mixture import GaussianMixture
 
 # Define mixture components
 # mildly unbalanced (one dominant mode, one rare spike)
-weights = np.array([0.10, 0.05, 0.25, 0.20, 0.40])
+weights = np.array([0.45, 0.55])
 
 means = np.array([
-    [-3.0, -3.0],   # 1: elongated and correlated
-    [ 7.0,  7.0],   # 2: very tight spike (hard to hit)
-    [-2.0,  7.5],   # 3: medium, tilted
-    [ 7.5, -4.5],   # 4: tight-ish, correlated
-    [ 2.0,  2.0],   # 5: broad basin (dominant mass)
+    [- 4, 0.0],
+    [ 4.5, 0.0],
 ])
 
 covs = np.array([
-    [[0.15,  0.12],
-     [0.12,  0.50]],   # det = 0.0606  -> PD, long narrow diagonal
+    [[1.5,  0.0],
+     [0.0,  1.0]],
 
-    [[0.03,  0.00],
-     [0.00,  0.05]],   # very tight spike
-
-    [[0.10, -0.06],
-     [-0.06, 0.20]],   # tilted ellipse (det = 0.0164)
-
-    [[0.40,  0.18],
-     [0.18,  0.15]],   # tight & correlated (det = 0.0276)
-
-    [[1.50,  0.00],
-     [0.00,  2.50]],   # broad, easy basin
+    [[0.50, 0.1],
+     [0.1, 0.30]],
 ])
 inv_covs = np.linalg.inv(covs)
 det_covs = np.array([np.linalg.det(c) for c in covs])
@@ -61,7 +49,7 @@ def log_p(XY):
         diff = XY - means[k]
         exponent = - 0.5 * np.sum(diff @ inv_covs[k] * diff, axis=-1)
         log_probs += weights[k] * np.exp(exponent) / np.sqrt((2 * np.pi) ** 2 * det_covs[k])
-    return np.log(log_probs)
+    return np.log(log_probs + 1e-16)
 
 # ====================================================
 # Plot setup
@@ -70,18 +58,41 @@ xs = np.linspace(-20, 20, 400)
 ys = np.linspace(-20, 20, 400)
 X, Y = np.meshgrid(xs, ys)
 LOGZ = log_p(np.stack([X, Y], axis=-1))
-vmax, vmin = LOGZ.max(), LOGZ.max() - 50
+vmax, vmin = LOGZ.max(), LOGZ.max() - 20
 levels = np.linspace(vmin, vmax, 50)
 
 # sampler parameters
-m, M, r, s = 0.5, 50, 0.25, 2
-b = 7.6  # BAOAB stepsize multiplier
+m, M, r, s = 0.5, 50, 0.5, 2
+b = 2.5  # BAOAB stepsize multiplier
 burnin = int(1e3)
 nsteps = int(1e6)
 
 # ====================================================
 # Run and visualize
 # ====================================================
+# param_grid = {
+#     "alpha": [0.01],
+#     "h":     [0.1],
+#     "beta":  [1.0],
+#     "m":     [0.5],
+#     "M":     [50.0],
+#     "r":     [0.5, 1.0],
+#     "s":     [1.5, 2.0, 5.0],
+# }
+#
+# plot_grid_samples(
+#     X, Y, LOGZ, levels,
+#     grad_U=grad_U,
+#     pis=weights, mus=means, Sigmas=covs,
+#     param_grid=param_grid,
+#     order=1,
+#     nsteps=int(5e4), burnin=int(1e3),
+#     plot_stride=4,
+#     ncols=6, figsize=(3.5, 3.5),
+#     saveto="./toy/grid_zsgld.png"
+# )
+# exit()
+
 print("sampling from GMM to prepare MMD")
 gmm = GaussianMixture(n_components=len(weights), covariance_type='full')
 gmm.weights_ = weights
@@ -91,10 +102,10 @@ gmm.precisions_cholesky_ = np.linalg.cholesky(np.linalg.inv(covs))
 true_samples, _ = gmm.sample(nsteps)
 print('finish')
 plot_gmm_color(
-    alpha=0.05,
+    alpha=0.1,
     h=0.01,
     gamma=0.5,
-    beta=0.7,
+    beta=1.0,
     grad_U=grad_U,
     X=X,
     Y=Y,
@@ -112,7 +123,7 @@ plot_gmm_color(
     mus=means,
     Sigmas=covs,
     nsteps=nsteps,
-    plot_stride=10,
+    plot_stride=1,
     order=1,
     saveto="gmm_color.png"
 )
