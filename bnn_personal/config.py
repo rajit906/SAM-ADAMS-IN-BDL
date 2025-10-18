@@ -24,9 +24,9 @@ def get_config():
     parser.add_argument("--hidden", type=int, default=1200)
     parser.add_argument("--batch_size", type=int, default=100)
     parser.add_argument("--epochs", type=int, default=400)
-    parser.add_argument("--burnin_batches", type=int, default=100*500) # 500 batch per epoch. 1000 is 2 epochs. 
+    parser.add_argument("--burnin_batches", type=int, default=200*500) # 500 batch per epoch. 1000 is 2 epochs. 
     parser.add_argument("--save_every", type=int, default=100)
-    parser.add_argument("--num_runs", type=int, default=5)
+    parser.add_argument("--num_runs", type=int, default=3)
 
     # System
     parser.add_argument("--results_dir", type=str, default="results")

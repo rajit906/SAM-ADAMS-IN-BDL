@@ -76,3 +76,31 @@ def predictive_metrics_from_weight_dicts(model_class, weight_dicts, dataloader,
     
     return {"nll": nll, "acc": acc, "brier": brier, "ece": ece}
 
+def calculate_ess(trace, max_lag=None):
+    """
+    Calculate the Effective Sample Size (ESS) of a time series.
+    """
+    if len(trace) < 2:
+        return 0.0
+    
+    n = len(trace)
+    if max_lag is None:
+        max_lag = n - 1
+
+    mean = np.mean(trace)
+    gamma = np.zeros(max_lag)
+    
+    for t in range(max_lag):
+        gamma[t] = np.sum((trace[:n-t] - mean) * (trace[t:] - mean)) / n
+
+    rho_sum = 0
+    for t in range(1, max_lag - 1, 2):
+        if gamma[t] + gamma[t+1] > 0:
+            rho_sum += (gamma[t] + gamma[t+1]) / (gamma[0])
+        else:
+            break
+            
+    tau = 1 + 2 * rho_sum
+    if tau <= 0: return 0.0
+    ess = n / tau
+    return ess

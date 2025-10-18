@@ -1,5 +1,6 @@
-# TODO: Fix horseshoe add correlated normal. Test with and without reweighting for SA-SGLD.
-# Non-global learning rate,lower scale of prior, correct NLL.
+# TODO: Test with and without reweighting for SA-SGLD.
+# Non-global learning rate,lower scale of prior.
+# Why is configurational temp wrong? Also reweight for SA-SGLD. Put second Z-step (?)
 #train.py
 import os
 import torch.multiprocessing as mp
@@ -14,7 +15,6 @@ from config import get_config
 from tqdm import tqdm
 import ssl
 ssl._create_default_https_context = ssl._create_unverified_context
-
 
 cfg = get_config()
 

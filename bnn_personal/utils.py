@@ -5,6 +5,8 @@ import random
 import numpy as np
 from datetime import datetime
 from scipy.stats import t
+import torch.nn.functional as F
+from tqdm import tqdm
 
 def set_seed(seed):
     random.seed(seed)
@@ -59,3 +61,22 @@ def mean_confidence_interval(data, confidence=0.95):
     sem = np.std(data, axis=0, ddof=1) / np.sqrt(len(data))
     h = sem * t.ppf((1 + confidence) / 2., len(data)-1)
     return mean, h
+
+def get_nll_trace(model_lambda, samples, dataloader, device):
+    """
+    Calculate the negative log-likelihood for each sample on a given dataset.
+    """
+    print("Calculating NLL trace for ESS...")
+    model = model_lambda().to(device).eval()
+    nll_trace = []
+    
+    all_x = torch.cat([xb for xb, _ in dataloader], dim=0).to(device)
+    all_y = torch.cat([yb for _, yb in dataloader], dim=0).to(device)
+
+    with torch.no_grad():
+        for s in tqdm(samples, desc="Evaluating samples"):
+            model.load_state_dict(s)
+            logits = model(all_x)
+            nll = F.cross_entropy(logits, all_y, reduction='mean').item()
+            nll_trace.append(nll)
+    return np.array(nll_trace)
