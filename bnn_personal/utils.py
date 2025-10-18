@@ -18,7 +18,7 @@ def make_results_dir(base="results"):
 
 def make_run_name(cfg):
     parts = [
-        cfg.get("sampler", "sgld"),
+        #cfg.get("sampler", "sgld"),
         cfg.get("prior", "gaussian"),
         f"scale{cfg.get('prior_scale', 1.0)}",
         f"lr{cfg.get('lr', 1e-1)}",
